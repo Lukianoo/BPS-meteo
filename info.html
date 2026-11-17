@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0b1118">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="stylesheet" href="leaflet.css">
+<title>BPS Hodoňovice – počasí a provoz</title>
+<style>
+/* Bez CSS proměnných a gridu – kvůli Androidu 6 */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:#0b1118;color:#eef2f5;font-family:Roboto,"Segoe UI",system-ui,Arial,sans-serif;font-size:16px;line-height:1.3;-webkit-font-smoothing:antialiased;overflow-x:hidden;-webkit-tap-highlight-color:rgba(0,0,0,0)}
+.num{font-feature-settings:"tnum";-webkit-font-feature-settings:"tnum"}
+.app{display:flex;flex-direction:column;height:100%;padding:8px 12px 6px}
+
+/* Horní lišta – čas a datum */
+.top{display:flex;align-items:center;padding-bottom:6px;border-bottom:1px solid #1f2b37;margin-bottom:10px;flex:0 0 auto}
+.top .clk{font-size:76px;font-weight:300;line-height:1;letter-spacing:2px}
+.top .clk span{font-size:38px;color:#7d8a97;margin-left:4px}
+.top .dt{margin-left:22px}
+.top .dt b{display:block;font-size:30px;font-weight:600;line-height:1.1}
+.top .dt span{font-size:20px;color:#9aa7b4}
+.top .sp{flex:1}
+.top .brand{text-align:right;margin-right:14px}
+.top .brand b{display:block;font-size:20px;font-weight:600}
+.top .brand span{font-size:14px;color:#7d8a97}
+.btn{display:inline-block;width:52px;height:52px;border-radius:12px;background:#16212c;border:1px solid #243241;color:#c9d3dc;font-size:24px;line-height:50px;text-align:center;text-decoration:none;margin-left:8px;cursor:pointer}
+.btn:active{background:#223040}
+
+.cols{display:flex;flex:1 1 auto;min-height:0;margin:0 -5px}
+.col{margin:0 5px;display:flex;flex-direction:column;min-width:0;min-height:0}
+.c-l{flex:0 0 24%}.c-m{flex:1 1 auto}.c-r{flex:0 0 28%}
+.pnl{background:#121a23;border:1px solid #1f2b37;border-radius:14px;padding:12px 14px;min-height:0}
+.pnl h2{font-size:15px;font-weight:600;color:#9aa7b4;text-transform:uppercase;letter-spacing:.8px;display:flex;align-items:baseline}
+.pnl h2 .sp{flex:1}
+.pnl h2 small{font-size:13px;text-transform:none;letter-spacing:0;font-weight:400;color:#7d8a97}
+.mb{margin-bottom:10px}
+
+/* Levý sloupec – teplota a vlhkost */
+.big{font-size:88px;font-weight:300;line-height:1;margin-top:6px;white-space:nowrap}
+.big small{font-size:36px;color:#9aa7b4;margin-left:2px}
+.sub{font-size:17px;color:#9aa7b4;margin-top:6px}
+.sub b{color:#eef2f5;font-weight:600}
+.spark{flex:1 1 auto;min-height:50px;max-height:150px;margin-top:8px;position:relative}
+.c-l .pnl{display:flex;flex-direction:column}
+.age{font-size:14px;color:#7d8a97;margin-top:6px}
+.age.warn{color:#fab219}
+
+/* Prostřední sloupec – předpověď + radar */
+.fc{display:flex;margin:6px -5px 0}
+.day{flex:1 1 0;margin:0 5px;background:#0f161e;border:1px solid #1c2733;border-radius:12px;padding:8px 10px;text-align:center;min-width:0}
+.day h3{font-size:18px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.day h3 span{font-weight:400;color:#7d8a97;font-size:15px;margin-left:4px}
+.day svg{width:64px;height:64px;display:block;margin:2px auto 0}
+.day .ds{font-size:14px;color:#b9c4ce;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.day .tt{font-size:30px;font-weight:600;margin-top:2px;white-space:nowrap}
+.day .tt span{color:#7d8a97;font-weight:400;font-size:24px}
+.day .rr{font-size:14px;color:#9aa7b4;margin-top:3px;white-space:nowrap}
+.day .rr b{color:#6fb3ff;font-weight:600}
+.radar{flex:1 1 auto;display:flex;flex-direction:column;margin-top:10px}
+.map{flex:1 1 auto;border-radius:10px;overflow:hidden;margin-top:6px;background:#0f161e;min-height:200px;position:relative}
+.leaflet-container{background:#0f161e;font-family:inherit}
+.leaflet-control-attribution{font-size:10px!important;background:rgba(11,17,24,.75)!important;color:#7d8a97!important}
+.leaflet-control-attribution a{color:#9aa7b4!important}
+.rbar{display:flex;align-items:center;margin-top:6px;font-size:14px;color:#9aa7b4}
+.rbar .sp{flex:1}
+.rbar b{color:#eef2f5;font-size:16px}
+.scale{display:inline-block;width:120px;height:9px;border-radius:5px;vertical-align:middle;margin:0 6px;background:linear-gradient(to right,#9ad1ff,#3b8cff,#1d4fd8,#f2c94c,#f2994a,#eb5757,#d63bd6)}
+.prog{height:4px;background:#1f2b37;border-radius:2px;margin-top:5px;overflow:hidden}
+.prog i{display:block;height:100%;background:#3987e5;width:0}
+
+/* Pravý sloupec – výkon a krmná dávka */
+.pwr{display:flex;align-items:center;margin-top:4px}
+.gauge{width:150px;height:96px;flex:0 0 150px}
+.pwr .pv{margin-left:10px;min-width:0}
+.pwr .pv b{display:block;font-size:30px;font-weight:600;line-height:1.1;white-space:nowrap}
+.pwr .pv span{font-size:14px;color:#9aa7b4}
+.eng{display:flex;margin-top:8px}
+.eng>div{flex:1 1 0;background:#0f161e;border:1px solid #1c2733;border-radius:10px;padding:6px 10px;margin-right:8px;min-width:0}
+.eng>div:last-child{margin-right:0}
+.eng h4{font-size:13px;color:#9aa7b4;font-weight:600}
+.eng b{font-size:24px;font-weight:600}
+.feed{flex:1 1 auto;display:flex;flex-direction:column;overflow:hidden}
+.fl{list-style:none;margin-top:6px;overflow:hidden;flex:1 1 auto}
+.fl li{padding:5px 0;border-bottom:1px solid #18222d}
+.fl li:last-child{border-bottom:0}
+.fl .r{display:flex;align-items:baseline;font-size:17px}
+.fl .r span{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#dfe6ec}
+.fl .r b{font-size:19px;font-weight:600;margin-left:8px;white-space:nowrap}
+.fl .r em{font-style:normal;color:#7d8a97;font-size:14px;margin-left:6px;width:42px;text-align:right;white-space:nowrap;flex:0 0 42px}
+.fl .bar{height:6px;background:#1a2530;border-radius:3px;margin-top:4px;overflow:hidden}
+.fl .bar i{display:block;height:100%;border-radius:3px;background:#2fbf71}
+.tot{white-space:nowrap;display:flex;align-items:baseline;border-top:1px solid #2a3949;padding-top:8px;margin-top:4px;font-size:16px;color:#9aa7b4}
+.tot b{font-size:26px;color:#eef2f5;margin-left:6px}
+.tot .sp{flex:1}
+.empty{color:#7d8a97;font-size:15px;padding:12px 0}
+.ftr{font-size:11px;color:#5f6c79;margin-top:5px;flex:0 0 auto;display:flex}
+.ftr .sp{flex:1}
+
+/* Menší rozlišení (např. 1024×600 / 962×601) */
+@media (max-width:1150px), (max-height:700px){
+  .top .clk{font-size:58px}.top .clk span{font-size:28px}
+  .top .dt b{font-size:24px}.top .dt span{font-size:16px}
+  .big{font-size:64px}.big small{font-size:28px}
+  .sub{font-size:15px}
+  .day svg{width:48px;height:48px}.day .tt{font-size:24px}.day .tt span{font-size:19px}.day h3{font-size:16px}
+  .gauge{width:120px;height:78px;flex-basis:120px}
+  .pwr .pv b{font-size:24px}
+  .fl .r{font-size:15px}.fl .r b{font-size:16px}
+  .spark{height:44px}
+  .top .brand{display:none}
+  .day h3 span{display:none}
+  .pvl{font-size:12px!important}
+  .ftr{display:none}
+  .rbar{font-size:12px}.scale{width:70px}
+  .tot b{font-size:20px}
+  .fl .r em{flex-basis:36px;width:36px;font-size:12px}
+  .spark{min-height:36px}
+}
+@media (max-height:640px){ .spark{display:none} .eng{display:none} }
+/* Na výšku – sloupce pod sebe */
+@media (orientation:portrait){
+  .app{height:auto;min-height:100%}
+  .cols{flex-direction:column}
+  .col{flex:0 0 auto!important;margin-bottom:10px}
+  .map{height:420px}
+  .c-l{flex-direction:row}.c-l .pnl{flex:1 1 0;margin-right:10px}.c-l .pnl:last-child{margin-right:0}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <div class="clk num" id="clk">--:--</div>
+    <div class="dt"><b id="dDay">—</b><span id="dDate">—</span></div>
+    <div class="sp"></div>
+    <div class="brand"><b>BPS Hodoňovice</b><span id="nameday">&nbsp;</span></div>
+    <a class="btn" href="index.html" title="Provozní přehled">&#9638;</a>
+    <div class="btn" id="btnFs" title="Celá obrazovka">&#x26F6;</div>
+  </div>
+
+  <div class="cols">
+    <!-- LEVÝ SLOUPEC -->
+    <div class="col c-l">
+      <div class="pnl mb" style="flex:1 1 0">
+        <h2>Teplota venku<span class="sp"></span><small>BPS</small></h2>
+        <div class="big num" id="t">—</div>
+        <div class="sub num">dnes min <b id="tMin">—</b> · max <b id="tMax">—</b></div>
+        <div class="spark" id="spT"></div>
+        <div class="age" id="age">&nbsp;</div>
+      </div>
+      <div class="pnl" style="flex:1 1 0">
+        <h2>Vlhkost vzduchu</h2>
+        <div class="big num" id="h">—</div>
+        <div class="sub num">rosný bod <b id="dew">—</b></div>
+        <div class="spark" id="spH"></div>
+      </div>
+    </div>
+
+    <!-- PROSTŘEDNÍ SLOUPEC -->
+    <div class="col c-m">
+      <div class="pnl" style="flex:1 1 auto;display:flex;flex-direction:column">
+        <h2>Předpověď počasí<span class="sp"></span><small>Hodoňovice · 3 dny</small></h2>
+        <div class="fc" id="fc"><div class="empty">Načítám předpověď…</div></div>
+        <div class="radar">
+          <h2>Meteoradar<span class="sp"></span><small id="rTime">—</small></h2>
+          <div class="map" id="map"></div>
+          <div class="prog"><i id="rProg"></i></div>
+          <div class="rbar">slabé<span class="scale"></span>silné srážky<span class="sp"></span><span><span style="color:#2fbf71">●</span> BPS</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRAVÝ SLOUPEC -->
+    <div class="col c-r">
+      <div class="pnl mb" style="flex:0 0 auto">
+        <h2>Výkon BPS<span class="sp"></span><small id="pDate">—</small></h2>
+        <div class="pwr">
+          <svg class="gauge" id="gauge" viewBox="0 0 150 96"></svg>
+          <div class="pv"><b class="num" id="pKw">—</b><span class="pvl">průměrný výkon za den<br>z 1 186 kW instalovaných</span></div>
+        </div>
+        <div class="eng" id="eng"></div>
+      </div>
+      <div class="pnl feed" style="flex:1 1 0">
+        <h2>Krmná dávka<span class="sp"></span><small id="fDate">—</small></h2>
+        <ul class="fl" id="fl"></ul>
+        <div class="tot" id="tot"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ftr"><span>Teplota/vlhkost: ThingSpeak 3149723 · Předpověď: Open-Meteo.com · Radar: RainViewer.com · Výkon a krmení: Denní evidence BPS (odečet v 7:00)</span><span class="sp"></span><span id="upd"></span></div>
+</div>
+
+<script src="leaflet.js"></script>
+<script>
+/* =====================================================================
+   NASTAVENÍ
+   ===================================================================== */
+var CONFIG = {
+  sheetId: '1zpMvaNEQKsdETCV_L7ADNG7WjoBLcZ_mx8KRpJPQ2Hg',
+  thingspeakChannel: 3149723,
+  lat: 49.65, lon: 18.39,          // BPS Hodoňovice (pro předpověď a značku na radaru)
+  installedKw: 1186,
+  targetPct: 90,
+  mapZoom: 7,                      // RainViewer zdarma poskytuje radar max. do přiblížení 7
+  refreshMeteoSec: 60,
+  refreshForecastMin: 30,
+  refreshRadarMin: 10,
+  refreshSheetMin: 10
+};
+
+/* =====================================================================
+   Pomocné funkce (ES5)
+   ===================================================================== */
+function $(id) { return document.getElementById(id); }
+function pad(n) { return (n < 10 ? '0' : '') + n; }
+var DNY = ['ne', 'po', 'út', 'st', 'čt', 'pá', 'so'];
+var DNY_L = ['Neděle', 'Pondělí', 'Úterý', 'Středa', 'Čtvrtek', 'Pátek', 'Sobota'];
+var MES = ['ledna', 'února', 'března', 'dubna', 'května', 'června', 'července', 'srpna', 'září', 'října', 'listopadu', 'prosince'];
+function fmt(n, dec) {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  var neg = n < 0; n = Math.abs(n);
+  var s = n.toFixed(dec || 0), p = s.split('.'), i = p[0], out = '';
+  while (i.length > 3) { out = ' ' + i.slice(-3) + out; i = i.slice(0, -3); }
+  return (neg ? '−' : '') + i + out + (p[1] ? ',' + p[1] : '');
+}
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+function startOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function addDays(d, n) { return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n); }
+function dkey(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function dShort(d) { return d.getDate() + '. ' + (d.getMonth() + 1) + '.'; }
+function xhr(url, cb) {
+  var r = new XMLHttpRequest(), done = false;
+  r.open('GET', url, true); r.timeout = 25000;
+  r.onreadystatechange = function () {
+    if (r.readyState !== 4 || done) return; done = true;
+    if (r.status >= 200 && r.status < 300) cb(null, r.responseText); else cb(new Error('HTTP ' + r.status));
+  };
+  r.ontimeout = function () { if (!done) { done = true; cb(new Error('timeout')); } };
+  r.send();
+}
+function parseIso(s) {
+  var m = /^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)/.exec(s || '');
+  return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6])) : null;
+}
+function cache(key, val) {
+  try {
+    if (val === undefined) { var t = localStorage.getItem('bpsInfo_' + key); return t ? JSON.parse(t) : null; }
+    localStorage.setItem('bpsInfo_' + key, JSON.stringify(val));
+  } catch (e) { return null; }
+}
+
+/* =====================================================================
+   Hodiny a datum
+   ===================================================================== */
+function tick() {
+  var d = new Date();
+  $('clk').innerHTML = pad(d.getHours()) + ':' + pad(d.getMinutes()) + '<span>' + pad(d.getSeconds()) + '</span>';
+  $('dDay').innerHTML = DNY_L[d.getDay()];
+  $('dDate').innerHTML = d.getDate() + '. ' + MES[d.getMonth()] + ' ' + d.getFullYear() + ' · ' + weekNo(d) + '. týden';
+}
+function weekNo(d) {
+  var t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())), day = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - day);
+  var y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  return Math.ceil(((t - y0) / 864e5 + 1) / 7);
+}
+
+/* =====================================================================
+   Levý sloupec – ThingSpeak
+   ===================================================================== */
+var WX = { now: cache('now'), day: cache('day') || [] };
+if (WX.now) WX.now.d = new Date(WX.now.d);
+for (var _i = 0; _i < WX.day.length; _i++) WX.day[_i].d = new Date(WX.day[_i].d);
+function tsUrl(p) { return 'https://api.thingspeak.com/channels/' + CONFIG.thingspeakChannel + p; }
+function loadNow() {
+  xhr(tsUrl('/feeds/last.json?_=' + Date.now()), function (e, txt) {
+    if (!e) try {
+      var j = JSON.parse(txt);
+      WX.now = { d: parseIso(j.created_at), t: parseFloat(j.field1), h: parseFloat(j.field2) };
+      cache('now', WX.now);
+    } catch (x) {}
+    renderWx();
+  });
+}
+function loadDay() { // posledních 24 h, hodinové průměry
+  xhr(tsUrl('/feeds.json?days=1&average=60&_=' + Date.now()), function (e, txt) {
+    if (!e) try {
+      var f = JSON.parse(txt).feeds || [], a = [];
+      for (var i = 0; i < f.length; i++) {
+        var d = parseIso(f[i].created_at), t = parseFloat(f[i].field1), h = parseFloat(f[i].field2);
+        if (d && !isNaN(t)) a.push({ d: d, t: t, h: isNaN(h) ? null : h });
+      }
+      if (a.length) { WX.day = a; cache('day', a); }
+    } catch (x) {}
+    renderWx();
+  });
+}
+function dewPoint(t, rh) {
+  if (isNaN(t) || isNaN(rh) || rh <= 0) return null;
+  var a = 17.62, b = 243.12, g = Math.log(Math.min(rh, 100) / 100) + a * t / (b + t);
+  return b * g / (a - g);
+}
+function spark(id, pts, key, color, unit, dec) {
+  var box = $(id), W = box.clientWidth, H = box.clientHeight, data = [];
+  for (var i = 0; i < pts.length; i++) if (pts[i][key] !== null && !isNaN(pts[i][key])) data.push(pts[i]);
+  if (data.length < 2 || W < 20 || H < 10) { box.innerHTML = ''; return; }
+  var mn = 1e9, mx = -1e9;
+  for (i = 0; i < data.length; i++) { mn = Math.min(mn, data[i][key]); mx = Math.max(mx, data[i][key]); }
+  if (mx - mn < 2) { mx += 1; mn -= 1; }
+  var t0 = data[0].d.getTime(), t1 = data[data.length - 1].d.getTime(), T = 4, B = 14;
+  var X = function (t) { return 2 + (t - t0) / (t1 - t0) * (W - 10); };
+  var Y = function (v) { return T + (H - T - B) - (v - mn) / (mx - mn) * (H - T - B); };
+  var p = '';
+  for (i = 0; i < data.length; i++) p += (i ? 'L' : 'M') + X(data[i].d.getTime()).toFixed(1) + ',' + Y(data[i][key]).toFixed(1);
+  var s = '<svg width="' + W + '" height="' + H + '" style="position:absolute;left:0;top:0">';
+  s += '<line x1="0" x2="' + W + '" y1="' + (H - B) + '" y2="' + (H - B) + '" stroke="#2e3d4d"/>';
+  s += '<path d="' + p + 'L' + X(t1) + ',' + (H - B) + 'L' + X(t0) + ',' + (H - B) + 'Z" fill="' + color + '" opacity=".12"/>';
+  s += '<path d="' + p + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linejoin="round"/>';
+  var lp = data[data.length - 1];
+  s += '<circle cx="' + X(t1) + '" cy="' + Y(lp[key]) + '" r="4" fill="' + color + '" stroke="#121a23" stroke-width="2"/>';
+  s += '<text x="0" y="' + (H - 2) + '" fill="#7d8a97" font-size="11">před 24 h</text>';
+  s += '<text x="' + (W - 2) + '" y="' + (H - 2) + '" fill="#7d8a97" font-size="11" text-anchor="end">teď</text>';
+  box.innerHTML = s + '</svg>';
+}
+function renderWx() {
+  var n = WX.now;
+  if (n && !isNaN(n.t)) {
+    $('t').innerHTML = fmt(n.t, 1) + '<small>°C</small>';
+    $('h').innerHTML = fmt(n.h, 0) + '<small>%</small>';
+    var dp = dewPoint(n.t, n.h);
+    $('dew').innerHTML = dp === null ? '—' : fmt(dp, 1) + ' °C';
+    var age = Math.round((Date.now() - n.d) / 60000);
+    $('age').className = 'age' + (age > 30 ? ' warn' : '');
+    $('age').innerHTML = age > 30 ? '▲ meteostanice neposílá data ' + (age > 120 ? Math.round(age / 60) + ' h' : age + ' min')
+      : 'měřeno ' + pad(n.d.getHours()) + ':' + pad(n.d.getMinutes());
+  }
+  var today = startOfDay(new Date()), tv = [];
+  for (var i = 0; i < WX.day.length; i++) if (WX.day[i].d >= today) tv.push(WX.day[i].t);
+  if (n && !isNaN(n.t)) tv.push(n.t);
+  if (tv.length) { $('tMin').innerHTML = fmt(Math.min.apply(null, tv), 1) + ' °C'; $('tMax').innerHTML = fmt(Math.max.apply(null, tv), 1) + ' °C'; }
+  spark('spT', WX.day, 't', '#f08a4b', '°C', 1);
+  spark('spH', WX.day, 'h', '#3987e5', '%', 0);
+}
+
+/* =====================================================================
+   Předpověď – Open-Meteo (bez klíče)
+   ===================================================================== */
+var WMO = {
+  0: ['Jasno', 'sun'], 1: ['Skoro jasno', 'sun'], 2: ['Polojasno', 'partly'], 3: ['Zataženo', 'cloud'],
+  45: ['Mlha', 'fog'], 48: ['Mlha s námrazou', 'fog'],
+  51: ['Slabé mrholení', 'drizzle'], 53: ['Mrholení', 'drizzle'], 55: ['Silné mrholení', 'drizzle'],
+  56: ['Mrznoucí mrholení', 'sleet'], 57: ['Mrznoucí mrholení', 'sleet'],
+  61: ['Slabý déšť', 'rain'], 63: ['Déšť', 'rain'], 65: ['Silný déšť', 'rain'],
+  66: ['Mrznoucí déšť', 'sleet'], 67: ['Mrznoucí déšť', 'sleet'],
+  71: ['Slabé sněžení', 'snow'], 73: ['Sněžení', 'snow'], 75: ['Silné sněžení', 'snow'], 77: ['Sněhová zrna', 'snow'],
+  80: ['Přeháňky', 'showers'], 81: ['Dešťové přeháňky', 'showers'], 82: ['Silné přeháňky', 'showers'],
+  85: ['Sněhové přeháňky', 'snow'], 86: ['Sněhové přeháňky', 'snow'],
+  95: ['Bouřky', 'storm'], 96: ['Bouřky s kroupami', 'storm'], 99: ['Bouřky s kroupami', 'storm']
+};
+function icon(k) {
+  var sun = '<circle cx="32" cy="30" r="11" fill="#f5c24a"/><g stroke="#f5c24a" stroke-width="3" stroke-linecap="round"><path d="M32 9v5M32 46v5M11 30h5M48 30h5M17 15l3.5 3.5M43.5 41.5L47 45M17 45l3.5-3.5M43.5 18.5L47 15"/></g>';
+  var cloud = function (c, y) { return '<path transform="translate(0,' + (y || 0) + ')" d="M20 46h26a9 9 0 0 0 0-18 13 13 0 0 0-25-2 8 8 0 0 0-1 20z" fill="' + c + '"/>'; };
+  var drops = '<g stroke="#5aa9ff" stroke-width="3" stroke-linecap="round"><path d="M24 50l-3 7M34 50l-3 7M44 50l-3 7"/></g>';
+  var flakes = '<g fill="#dfe9f5"><circle cx="22" cy="54" r="2.6"/><circle cx="32" cy="58" r="2.6"/><circle cx="42" cy="54" r="2.6"/></g>';
+  var s = '<svg viewBox="0 0 64 64" aria-hidden="true">';
+  if (k === 'sun') s += sun;
+  else if (k === 'partly') s += '<g transform="translate(-6,-6) scale(.85)">' + sun + '</g>' + cloud('#c9d3dc', 4);
+  else if (k === 'cloud') s += cloud('#9aa7b4', 2);
+  else if (k === 'fog') s += cloud('#7d8a97', -4) + '<g stroke="#9aa7b4" stroke-width="3" stroke-linecap="round"><path d="M14 50h36M18 57h28"/></g>';
+  else if (k === 'drizzle') s += cloud('#9aa7b4', -4) + '<g fill="#5aa9ff"><circle cx="24" cy="52" r="2"/><circle cx="34" cy="55" r="2"/><circle cx="44" cy="52" r="2"/></g>';
+  else if (k === 'rain') s += cloud('#8592a0', -4) + drops;
+  else if (k === 'showers') s += '<g transform="translate(-6,-10) scale(.8)">' + sun + '</g>' + cloud('#9aa7b4', -2) + drops;
+  else if (k === 'snow') s += cloud('#9aa7b4', -4) + flakes;
+  else if (k === 'sleet') s += cloud('#8592a0', -4) + '<g stroke="#5aa9ff" stroke-width="3" stroke-linecap="round"><path d="M24 50l-3 7M44 50l-3 7"/></g><circle cx="33" cy="55" r="2.6" fill="#dfe9f5"/>';
+  else if (k === 'storm') s += cloud('#6b7785', -4) + '<path d="M34 42l-8 11h6l-3 9 10-13h-6l4-7z" fill="#f5c24a"/>';
+  return s + '</svg>';
+}
+function loadForecast() {
+  var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + CONFIG.lat + '&longitude=' + CONFIG.lon +
+    '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max' +
+    '&timezone=Europe%2FPrague&forecast_days=3';
+  xhr(url, function (e, txt) {
+    var j = null;
+    if (!e) try { j = JSON.parse(txt); cache('fc', j); } catch (x) {}
+    renderForecast(j || cache('fc'));
+  });
+}
+function renderForecast(j) {
+  if (!j || !j.daily) { $('fc').innerHTML = '<div class="empty">Předpověď není dostupná</div>'; return; }
+  var d = j.daily, h = '', names = ['Dnes', 'Zítra', 'Pozítří'];
+  for (var i = 0; i < Math.min(3, d.time.length); i++) {
+    var p = d.time[i].split('-'), dt = new Date(+p[0], +p[1] - 1, +p[2]);
+    var w = WMO[d.weather_code[i]] || ['—', 'cloud'];
+    var gust = d.wind_gusts_10m_max ? d.wind_gusts_10m_max[i] : null;
+    h += '<div class="day"><h3>' + names[i] + '<span>' + DNY[dt.getDay()] + ' ' + dShort(dt) + '</span></h3>' + icon(w[1]) +
+      '<div class="ds">' + w[0] + '</div>' +
+      '<div class="tt num">' + fmt(d.temperature_2m_max[i], 0) + '°<span> / ' + fmt(d.temperature_2m_min[i], 0) + '°</span></div>' +
+      '<div class="rr num">☂ <b>' + fmt(d.precipitation_sum[i], 1) + ' mm</b> · ' + fmt(d.precipitation_probability_max[i], 0) + ' %</div>' +
+      '<div class="rr num">vítr ' + fmt(d.wind_speed_10m_max[i], 0) + ' km/h</div>' + (gust !== null ? '<div class="rr num">nárazy ' + fmt(gust, 0) + ' km/h</div>' : '') + '</div>';
+  }
+  $('fc').innerHTML = h;
+}
+
+/* =====================================================================
+   Meteoradar – RainViewer (zdarma: posledních ~2 h, přiblížení max. 7)
+   ===================================================================== */
+var MAP = null, RADAR = { frames: [], layers: [], idx: 0, host: '' }, animTimer = null;
+function initMap() {
+  if (typeof L === 'undefined') { $('map').innerHTML = '<div class="empty" style="padding:20px">Mapu se nepodařilo načíst</div>'; return; }
+  MAP = L.map('map', { zoomControl: false, attributionControl: true, dragging: true, scrollWheelZoom: false, doubleClickZoom: false, touchZoom: true, minZoom: 5, maxZoom: 9 })
+    .setView([CONFIG.lat, CONFIG.lon], CONFIG.mapZoom);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
+    subdomains: 'abcd', maxZoom: 9,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a> · Radar <a href="https://www.rainviewer.com/">RainViewer</a>'
+  }).addTo(MAP);
+  L.circleMarker([CONFIG.lat, CONFIG.lon], { radius: 7, color: '#0b1118', weight: 3, fillColor: '#2fbf71', fillOpacity: 1 }).addTo(MAP);
+  L.circle([CONFIG.lat, CONFIG.lon], { radius: 50000, color: '#2fbf71', weight: 1, opacity: .45, fill: false, dashArray: '4,6' }).addTo(MAP);
+  // popisky měst nad radarem
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}.png', { subdomains: 'abcd', maxZoom: 9, pane: 'shadowPane' }).addTo(MAP);
+  loadRadar();
+}
+function loadRadar() {
+  xhr('https://api.rainviewer.com/public/weather-maps.json?_=' + Date.now(), function (e, txt) {
+    if (e || !MAP) return;
+    try {
+      var j = JSON.parse(txt), past = (j.radar && j.radar.past) || [];
+      if (!past.length) return;
+      var frames = past.slice(Math.max(0, past.length - 7)); // poslední hodina (krok 10 min)
+      for (var i = 0; i < RADAR.layers.length; i++) MAP.removeLayer(RADAR.layers[i]);
+      RADAR.layers = []; RADAR.frames = frames; RADAR.host = j.host;
+      for (i = 0; i < frames.length; i++) {
+        var lyr = L.tileLayer(j.host + frames[i].path + '/256/{z}/{x}/{y}/2/1_1.png', { maxNativeZoom: 7, maxZoom: 9, opacity: 0, zIndex: 10 + i });
+        lyr.addTo(MAP); RADAR.layers.push(lyr);
+      }
+      RADAR.idx = frames.length - 1; showFrame(RADAR.idx);
+      if (animTimer) clearInterval(animTimer);
+      animTimer = setInterval(stepAnim, 900);
+    } catch (x) {}
+  });
+}
+var pauseCount = 0;
+function stepAnim() {
+  if (!RADAR.layers.length) return;
+  if (RADAR.idx === RADAR.layers.length - 1 && pauseCount < 3) { pauseCount++; return; } // na posledním snímku chvíli počkat
+  pauseCount = 0;
+  showFrame((RADAR.idx + 1) % RADAR.layers.length);
+}
+function showFrame(i) {
+  for (var k = 0; k < RADAR.layers.length; k++) RADAR.layers[k].setOpacity(k === i ? 0.75 : 0);
+  RADAR.idx = i;
+  var d = new Date(RADAR.frames[i].time * 1000), last = i === RADAR.frames.length - 1;
+  $('rTime').innerHTML = (last ? 'nejnovější snímek ' : 'snímek ') + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  $('rProg').style.width = ((i + 1) / RADAR.frames.length * 100) + '%';
+}
+
+/* =====================================================================
+   Pravý sloupec – výkon a krmná dávka z Google Tabulky
+   ===================================================================== */
+function gviz(sheet, tq, cb) {
+  xhr('https://docs.google.com/spreadsheets/d/' + CONFIG.sheetId + '/gviz/tq?tqx=out:json&headers=1&sheet=' +
+    encodeURIComponent(sheet) + '&tq=' + encodeURIComponent(tq) + '&_=' + Date.now(), function (e, txt) {
+    if (e) return cb(e);
+    try {
+      var j = JSON.parse(txt.substring(txt.indexOf('(') + 1, txt.lastIndexOf(')')));
+      if (j.status !== 'ok') return cb(new Error('gviz'));
+      var rows = [];
+      for (var i = 0; i < j.table.rows.length; i++) {
+        var c = j.table.rows[i].c, row = [];
+        for (var k = 0; k < c.length; k++) {
+          var v = c[k] ? c[k].v : null;
+          if (typeof v === 'string') { var m = /^Date\((\d+),(\d+),(\d+)/.exec(v); if (m) v = new Date(+m[1], +m[2], +m[3]); }
+          row.push(v);
+        }
+        rows.push(row);
+      }
+      cb(null, rows);
+    } catch (x) { cb(x); }
+  });
+}
+function parseCsvLine(t) {
+  var out = [], f = '', q = false;
+  for (var i = 0; i < t.length; i++) {
+    var ch = t.charAt(i);
+    if (q) { if (ch === '"') { if (t.charAt(i + 1) === '"') { f += '"'; i++; } else q = false; } else f += ch; }
+    else if (ch === '"') q = true; else if (ch === ',') { out.push(f); f = ''; } else if (ch !== '\r' && ch !== '\n') f += ch;
+  }
+  out.push(f); return out;
+}
+var FEED_NAMES = null;
+function loadSheet() {
+  var today = startOfDay(new Date()), from = dkey(addDays(today, -10)), to = dkey(today);
+  var where = " where A >= date '" + from + "' and A <= date '" + to + "' order by A";
+  // KGJ: A datum, C % KJ549, H % KJ637, L výroba kWh, N % celkem
+  gviz('KGJ', 'select A,C,H,L,N' + where, function (e, rows) {
+    if (!e) {
+      var last = null;
+      for (var i = 0; i < rows.length; i++) { var r = rows[i]; if (r[0] instanceof Date && r[3] > 0 && r[4] > 0 && r[4] < 1.5) last = r; }
+      if (last) cache('kgj', { d: last[0].getTime(), p1: last[1], p2: last[2], kwh: last[3], p: last[4] });
+    }
+    renderPower();
+  });
+  // názvy složek z řádku 4 listu Krmení (B–R)
+  xhr('https://docs.google.com/spreadsheets/d/' + CONFIG.sheetId + '/gviz/tq?tqx=out:csv&headers=0&sheet=' + encodeURIComponent('Krmení') + '&range=A4:U4', function (e, txt) {
+    if (!e) { FEED_NAMES = parseCsvLine(txt); cache('names', FEED_NAMES); }
+    gviz('Krmení', 'select A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,U' + where, function (e2, rows) {
+      if (!e2) {
+        var last = null;
+        for (var i = 0; i < rows.length; i++) if (rows[i][0] instanceof Date && rows[i][18] > 0) last = rows[i];
+        if (last) cache('krm', { d: last[0].getTime(), v: last.slice(1, 18), t: last[18], kejda: last[19] });
+      }
+      renderFeed();
+      $('upd').innerHTML = 'tabulka načtena ' + pad(new Date().getHours()) + ':' + pad(new Date().getMinutes());
+    });
+  });
+}
+function gaugeSvg(pct) {
+  var cx = 75, cy = 80, r = 62, a0 = Math.PI, v = Math.max(0, Math.min(pct, 110)) / 110;
+  var arc = function (from, to, col, w) {
+    var x1 = cx + r * Math.cos(Math.PI - from * Math.PI), y1 = cy - r * Math.sin(Math.PI - from * Math.PI);
+    var x2 = cx + r * Math.cos(Math.PI - to * Math.PI), y2 = cy - r * Math.sin(Math.PI - to * Math.PI);
+    return '<path d="M' + x1.toFixed(1) + ',' + y1.toFixed(1) + ' A' + r + ',' + r + ' 0 0 1 ' + x2.toFixed(1) + ',' + y2.toFixed(1) + '" fill="none" stroke="' + col + '" stroke-width="' + w + '" stroke-linecap="round"/>';
+  };
+  var col = pct >= CONFIG.targetPct ? '#2fbf71' : (pct >= CONFIG.targetPct - 10 ? '#fab219' : '#e5484d');
+  var s = arc(0, 1, '#1f2b37', 12);
+  if (v > 0.005) s += arc(0, v, col, 12);
+  var tg = CONFIG.targetPct / 110, tx = cx + (r + 9) * Math.cos(Math.PI - tg * Math.PI), ty = cy - (r + 9) * Math.sin(Math.PI - tg * Math.PI),
+      tx2 = cx + (r - 9) * Math.cos(Math.PI - tg * Math.PI), ty2 = cy - (r - 9) * Math.sin(Math.PI - tg * Math.PI);
+  s += '<line x1="' + tx.toFixed(1) + '" y1="' + ty.toFixed(1) + '" x2="' + tx2.toFixed(1) + '" y2="' + ty2.toFixed(1) + '" stroke="#c9d3dc" stroke-width="2"/>';
+  s += '<text x="75" y="76" text-anchor="middle" fill="#eef2f5" font-size="30" font-weight="600">' + fmt(pct, 1) + '</text>';
+  s += '<text x="75" y="93" text-anchor="middle" fill="#9aa7b4" font-size="13">% výkonu</text>';
+  return s;
+}
+function renderPower() {
+  var k = cache('kgj');
+  if (!k) return;
+  var d = new Date(k.d);
+  $('pDate').innerHTML = 'za den do ' + dShort(d) + ' 7:00';
+  $('gauge').innerHTML = gaugeSvg(k.p * 100);
+  $('pKw').innerHTML = fmt(k.kwh / 24, 0) + ' kW';
+  var col = function (p) { return p * 100 >= CONFIG.targetPct ? '#2fbf71' : (p * 100 >= CONFIG.targetPct - 10 ? '#fab219' : '#e5484d'); };
+  $('eng').innerHTML = '<div><h4>KJ 549 kW</h4><b class="num" style="color:' + col(k.p1) + '">' + fmt(k.p1 * 100, 1) + ' %</b></div>' +
+                       '<div><h4>KJ 637 kW</h4><b class="num" style="color:' + col(k.p2) + '">' + fmt(k.p2 * 100, 1) + ' %</b></div>';
+}
+function renderFeed() {
+  var k = cache('krm'), names = FEED_NAMES || cache('names');
+  if (!k) { $('fl').innerHTML = '<li class="empty">Žádná data</li>'; return; }
+  $('fDate').innerHTML = 'zápis ' + dShort(new Date(k.d));
+  var items = [];
+  for (var i = 0; i < k.v.length; i++) if (k.v[i] > 0) {
+    var nm = names && names[i + 1] ? names[i + 1] : 'Složka ' + (i + 1);
+    nm = nm.replace(/\s*\(\s*t\s*\)\s*/i, ' ').replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
+    items.push({ n: nm.charAt(0).toUpperCase() + nm.slice(1), v: k.v[i] });
+  }
+  items.sort(function (a, b) { return b.v - a.v; });
+  var mx = items.length ? items[0].v : 1, h = '';
+  for (i = 0; i < items.length; i++) {
+    h += '<li><div class="r"><span>' + esc(items[i].n) + '</span><b class="num">' + fmt(items[i].v, 1) + ' t</b><em class="num">' + fmt(items[i].v / k.t * 100, 0) + ' %</em></div>' +
+         '<div class="bar"><i style="width:' + (items[i].v / mx * 100).toFixed(1) + '%"></i></div></li>';
+  }
+  $('fl').innerHTML = h || '<li class="empty">Žádné složky</li>';
+  $('tot').innerHTML = 'Celkem<b class="num">' + fmt(k.t, 1) + ' t</b><span class="sp"></span>' + (k.kejda ? 'kejda <b class="num" style="font-size:20px">' + fmt(k.kejda, 0) + ' m³</b>' : '');
+}
+
+/* =====================================================================
+   Start
+   ===================================================================== */
+function toggleFs() {
+  var de = document.documentElement, fs = document.fullscreenElement || document.webkitFullscreenElement;
+  if (!fs) (de.requestFullscreen || de.webkitRequestFullscreen || function () {}).call(de);
+  else (document.exitFullscreen || document.webkitExitFullscreen || function () {}).call(document);
+}
+window.onload = function () {
+  tick(); setInterval(tick, 1000);
+  renderWx(); renderPower(); renderFeed(); renderForecast(cache('fc'));
+  loadNow(); loadDay(); loadForecast(); loadSheet(); initMap();
+  setInterval(loadNow, CONFIG.refreshMeteoSec * 1000);
+  setInterval(loadDay, 10 * 60000);
+  setInterval(loadForecast, CONFIG.refreshForecastMin * 60000);
+  setInterval(loadRadar, CONFIG.refreshRadarMin * 60000);
+  setInterval(loadSheet, CONFIG.refreshSheetMin * 60000);
+  setInterval(function () { var d = new Date(); if (d.getHours() === 3 && d.getMinutes() < 2) location.reload(); }, 60000);
+  $('btnFs').addEventListener('click', toggleFs);
+  var rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(function () { renderWx(); if (MAP) MAP.invalidateSize(); }, 250); });
+  window.addEventListener('online', function () { loadNow(); loadForecast(); loadRadar(); loadSheet(); });
+};
+</script>
+</body>
+</html>
