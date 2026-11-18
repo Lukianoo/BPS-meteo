@@ -20,13 +20,13 @@ body{background:#0b1118;color:#eef2f5;font-family:Roboto,"Segoe UI",system-ui,Ar
 .top{display:flex;align-items:center;padding-bottom:6px;border-bottom:1px solid #1f2b37;margin-bottom:10px;flex:0 0 auto}
 .top .clk{font-size:76px;font-weight:300;line-height:1;letter-spacing:2px}
 .top .clk span{font-size:38px;color:#7d8a97;margin-left:4px}
-.top .dt{margin-left:22px}
+.top .dt{margin-left:22px;flex:0 0 auto;white-space:nowrap}
 .top .dt b{display:block;font-size:30px;font-weight:600;line-height:1.1}
 .top .dt span{font-size:20px;color:#9aa7b4}
 .top .sp{flex:1}
-.top .brand{text-align:right;margin-right:14px}
-.top .brand b{display:block;font-size:20px;font-weight:600}
-.top .brand span{font-size:14px;color:#7d8a97}
+.top .brand{flex:1 1 auto;min-width:0;display:flex;align-items:center;justify-content:center;margin:0 16px;overflow:hidden}
+.top .brand svg{width:58px;height:58px;flex:0 0 58px;margin-right:14px}
+.top .brand b{font-size:58px;font-weight:700;letter-spacing:1px;white-space:nowrap;line-height:1}
 .btn{display:inline-block;width:52px;height:52px;border-radius:12px;background:#16212c;border:1px solid #243241;color:#c9d3dc;font-size:24px;line-height:50px;text-align:center;text-decoration:none;margin-left:8px;cursor:pointer}
 .btn:active{background:#223040}
 
@@ -148,7 +148,6 @@ body{background:#0b1118;color:#eef2f5;font-family:Roboto,"Segoe UI",system-ui,Ar
   .pwr .pv b{font-size:24px}
   .fl .r{font-size:15px}.fl .r b{font-size:16px}
   .spark{height:44px}
-  .top .brand{display:none}
   .day h3 span{display:none}
   .pvl{font-size:12px!important}
   .ftr{display:none}
@@ -173,8 +172,7 @@ body{background:#0b1118;color:#eef2f5;font-family:Roboto,"Segoe UI",system-ui,Ar
   <div class="top">
     <div class="clk num" id="clk">--:--</div>
     <div class="dt"><b id="dDay">—</b><span id="dDate">—</span></div>
-    <div class="sp"></div>
-    <div class="brand"><b>BPS Hodoňovice</b><span id="nameday">&nbsp;</span></div>
+    <div class="brand"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 4c5 7.5 11 12 11 20a11 11 0 0 1-22 0c0-5 2.5-8.6 5.5-11.6.4 3.6 2 6 4.3 7.3C17.6 15 17 10 20 4z" fill="#2fbf71"/><path d="M20 22c2.4 3.2 5 5 5 8.2a5 5 0 0 1-10 0c0-2.7 2.2-5 5-8.2z" fill="#0b1118" opacity=".55"/></svg><b>BPS Hodoňovice</b></div>
     <a class="btn" href="index.html" title="Provozní přehled">&#9638;</a>
     <div class="btn" id="btnFs" title="Celá obrazovka">&#x26F6;</div>
   </div>
@@ -304,9 +302,20 @@ function cache(key, val) {
 /* =====================================================================
    Hodiny a datum
    ===================================================================== */
-var rmSize = '';
+var rmSize = '', brSize = '';
+/* nápis BPS Hodoňovice se přizpůsobí volnému místu mezi datem a tlačítky */
+function fitBrand() {
+  var br = document.querySelector('.top .brand'), b = br ? br.querySelector('b') : null, ic = br ? br.querySelector('svg') : null;
+  if (!b) return;
+  var avail = br.clientWidth, fs = 68;
+  b.style.fontSize = fs + 'px';
+  while (fs > 16 && b.offsetWidth + fs + 14 > avail) { fs -= 2; b.style.fontSize = fs + 'px'; }
+  if (ic) { ic.style.width = ic.style.height = fs + 'px'; ic.style.flexBasis = fs + 'px'; }
+}
 function tick() {
   var d = new Date();
+  var tp = document.querySelector('.top');
+  if (tp) { var ts = tp.offsetWidth + ':' + $('dDate').innerHTML.length; if (ts !== brSize) { brSize = ts; setTimeout(fitBrand, 0); } }
   var rb = document.getElementById('rm');
   if (rb && typeof rdLayout === 'function') { var sz = rb.offsetWidth + 'x' + rb.offsetHeight; if (sz !== rmSize) { rmSize = sz; rdLayout(); } }
   $('clk').innerHTML = pad(d.getHours()) + ':' + pad(d.getMinutes()) + '<span>' + pad(d.getSeconds()) + '</span>';
