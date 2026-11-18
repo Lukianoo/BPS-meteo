@@ -26,7 +26,7 @@ body{background:#0b1118;color:#eef2f5;font-family:Roboto,"Segoe UI",system-ui,Ar
 .top .sp{flex:1}
 .top .brand{flex:1 1 auto;min-width:0;display:flex;align-items:center;justify-content:center;margin:0 16px;overflow:hidden}
 .top .brand svg{width:58px;height:58px;flex:0 0 58px;margin-right:14px}
-.top .brand b{font-size:58px;font-weight:700;letter-spacing:1px;white-space:nowrap;line-height:1}
+.top .brand b{font-size:52px;font-weight:700;letter-spacing:.5px;padding-right:4px;white-space:nowrap;line-height:1}
 .btn{display:inline-block;width:52px;height:52px;border-radius:12px;background:#16212c;border:1px solid #243241;color:#c9d3dc;font-size:24px;line-height:50px;text-align:center;text-decoration:none;margin-left:8px;cursor:pointer}
 .btn:active{background:#223040}
 
@@ -307,9 +307,10 @@ var rmSize = '', brSize = '';
 function fitBrand() {
   var br = document.querySelector('.top .brand'), b = br ? br.querySelector('b') : null, ic = br ? br.querySelector('svg') : null;
   if (!b) return;
-  var avail = br.clientWidth, fs = 68;
+  var avail = br.clientWidth - 30, fs = 60;
   b.style.fontSize = fs + 'px';
   while (fs > 16 && b.offsetWidth + fs + 14 > avail) { fs -= 2; b.style.fontSize = fs + 'px'; }
+  fs = Math.max(16, fs - 4); b.style.fontSize = fs + 'px'; // rezerva pro jiné písmo na tabletu
   if (ic) { ic.style.width = ic.style.height = fs + 'px'; ic.style.flexBasis = fs + 'px'; }
 }
 function tick() {
