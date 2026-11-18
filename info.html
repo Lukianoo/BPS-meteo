@@ -40,8 +40,8 @@ body{background:#0b1118;color:#eef2f5;font-family:Roboto,"Segoe UI",system-ui,Ar
 .mb{margin-bottom:10px}
 
 /* Levý sloupec – teplota a vlhkost */
-.big{font-size:88px;font-weight:300;line-height:1;margin-top:6px;white-space:nowrap}
-.big small{font-size:36px;color:#9aa7b4;margin-left:2px}
+.big{font-size:92px;font-weight:700;line-height:1;margin-top:6px;white-space:nowrap}
+.big small{font-size:36px;font-weight:600;color:#9aa7b4;margin-left:4px}
 .sub{font-size:17px;color:#9aa7b4;margin-top:6px}
 .sub b{color:#eef2f5;font-weight:600}
 .spark{flex:1 1 auto;min-height:50px;max-height:150px;margin-top:8px;position:relative}
@@ -126,8 +126,12 @@ body{background:#0b1118;color:#eef2f5;font-family:Roboto,"Segoe UI",system-ui,Ar
 .fl .r em{font-style:normal;color:#7d8a97;font-size:14px;margin-left:6px;width:42px;text-align:right;white-space:nowrap;flex:0 0 42px}
 .fl .bar{height:6px;background:#1a2530;border-radius:3px;margin-top:4px;overflow:hidden}
 .fl .bar i{display:block;height:100%;border-radius:3px;background:#2fbf71}
-.tot{white-space:nowrap;display:flex;align-items:baseline;border-top:1px solid #2a3949;padding-top:8px;margin-top:4px;font-size:16px;color:#9aa7b4}
-.tot b{font-size:26px;color:#eef2f5;margin-left:6px}
+.tot{white-space:nowrap;display:flex;align-items:flex-end;border-top:1px solid #2a3949;padding-top:8px;margin-top:4px;font-size:16px;color:#9aa7b4}
+.tot>div{flex:1 1 0;min-width:0}
+.tot>div+div{text-align:right}
+.tot span{display:block;font-size:14px;text-transform:uppercase;letter-spacing:.6px;color:#9aa7b4}
+.tot b{display:block;font-size:42px;font-weight:700;line-height:1.05;color:#eef2f5;white-space:nowrap}
+.tot b small{font-size:22px;font-weight:600;color:#9aa7b4;margin-left:3px}
 .tot .sp{flex:1}
 .empty{color:#7d8a97;font-size:15px;padding:12px 0}
 .ftr{font-size:11px;color:#5f6c79;margin-top:5px;flex:0 0 auto;display:flex}
@@ -137,7 +141,7 @@ body{background:#0b1118;color:#eef2f5;font-family:Roboto,"Segoe UI",system-ui,Ar
 @media (max-width:1150px), (max-height:700px){
   .top .clk{font-size:58px}.top .clk span{font-size:28px}
   .top .dt b{font-size:24px}.top .dt span{font-size:16px}
-  .big{font-size:64px}.big small{font-size:28px}
+  .big{font-size:70px}.big small{font-size:28px}
   .sub{font-size:15px}
   .day svg{width:48px;height:48px}.day .tt{font-size:24px}.day .tt span{font-size:19px}.day h3{font-size:16px}
   .gauge{width:120px;height:78px;flex-basis:120px}
@@ -149,7 +153,7 @@ body{background:#0b1118;color:#eef2f5;font-family:Roboto,"Segoe UI",system-ui,Ar
   .pvl{font-size:12px!important}
   .ftr{display:none}
   .rbar{font-size:12px}.scale{width:70px}
-  .tot b{font-size:20px}
+  .tot b{font-size:32px}.tot b small{font-size:17px}.tot span{font-size:12px}
   .fl .r em{flex-basis:36px;width:36px;font-size:12px}
   .spark{min-height:36px}
 }
@@ -780,7 +784,7 @@ function renderFeed() {
          '<div class="bar"><i style="width:' + (items[i].v / mx * 100).toFixed(1) + '%"></i></div></li>';
   }
   $('fl').innerHTML = h || '<li class="empty">Žádné složky</li>';
-  $('tot').innerHTML = 'Celkem<b class="num">' + fmt(k.t, 1) + ' t</b><span class="sp"></span>' + (k.kejda ? 'kejda <b class="num" style="font-size:20px">' + fmt(k.kejda, 0) + ' m³</b>' : '');
+  $('tot').innerHTML = '<div><span>Celkem</span><b class="num">' + fmt(k.t, 1) + '<small>t</small></b></div>' + (k.kejda ? '<div><span>Kejda</span><b class="num">' + fmt(k.kejda, 0) + '<small>m³</small></b></div>' : '');
 }
 
 /* =====================================================================
