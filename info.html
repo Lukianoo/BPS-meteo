@@ -39,7 +39,16 @@ body{background:#0b1118;color:#eef2f5;font-family:Roboto,"Segoe UI",system-ui,Ar
 .pnl h2 small{font-size:13px;text-transform:none;letter-spacing:0;font-weight:400;color:#7d8a97}
 .mb{margin-bottom:10px}
 
-/* Levý sloupec – teplota a vlhkost */
+/* Levý sloupec – teplota a tlak */
+.big.bigp{font-size:72px}
+.big.bigp small{font-size:26px}
+.tend{font-size:22px;font-weight:600;margin-top:6px;white-space:nowrap}
+.tend span{color:#9aa7b4;font-weight:400;font-size:17px}
+.pscale{position:relative;height:10px;border-radius:5px;margin:12px 0 2px;background:linear-gradient(to right,#3b5f8f 0%,#2e3d4d 37.5%,#2e3d4d 62.5%,#8a6a2a 100%)}
+.pscale i{position:absolute;top:-5px;width:4px;height:20px;margin-left:-2px;border-radius:2px;background:#eef2f5;display:none}
+.pscl{display:flex;font-size:12px;color:#7d8a97}
+.pscl span{flex:1}
+.pscl span:nth-child(2){text-align:center}.pscl span:last-child{text-align:right}
 .big{font-size:92px;font-weight:700;line-height:1;margin-top:6px;white-space:nowrap}
 .big small{font-size:36px;font-weight:600;color:#9aa7b4;margin-left:4px}
 .sub{font-size:17px;color:#9aa7b4;margin-top:6px}
@@ -142,6 +151,9 @@ body{background:#0b1118;color:#eef2f5;font-family:Roboto,"Segoe UI",system-ui,Ar
   .top .clk{font-size:58px}.top .clk span{font-size:28px}
   .top .dt b{font-size:24px}.top .dt span{font-size:16px}
   .big{font-size:70px}.big small{font-size:28px}
+  .big.bigp{font-size:52px}.big.bigp small{font-size:20px}
+  .tend{font-size:17px;white-space:normal}.tend span{font-size:14px}
+  .c-l h2 small{display:none}
   .sub{font-size:15px}
   .day svg{width:48px;height:48px}.day .tt{font-size:24px}.day .tt span{font-size:19px}.day h3{font-size:16px}
   .gauge{width:120px;height:78px;flex-basis:120px}
@@ -188,10 +200,13 @@ body{background:#0b1118;color:#eef2f5;font-family:Roboto,"Segoe UI",system-ui,Ar
         <div class="age" id="age">&nbsp;</div>
       </div>
       <div class="pnl" style="flex:1 1 0">
-        <h2>Vlhkost vzduchu</h2>
-        <div class="big num" id="h">—</div>
-        <div class="sub num">rosný bod <b id="dew">—</b></div>
-        <div class="spark" id="spH"></div>
+        <h2>Tlak vzduchu<span class="sp"></span><small>na hladinu moře</small></h2>
+        <div class="big bigp num" id="p">—</div>
+        <div class="tend num" id="pTend">—</div>
+        <div class="sub" id="pText">&nbsp;</div>
+        <div class="pscale"><i id="pMark"></i></div>
+        <div class="pscl"><span>níže 970</span><span>1010</span><span>výše 1050</span></div>
+        <div class="spark" id="spP"></div>
       </div>
     </div>
 
@@ -240,7 +255,7 @@ body{background:#0b1118;color:#eef2f5;font-family:Roboto,"Segoe UI",system-ui,Ar
     </div>
   </div>
 
-  <div class="ftr"><span>Teplota/vlhkost: ThingSpeak 3149723 · Předpověď: Open-Meteo.com · Radar: ČHMÚ · Výkon a krmení: Denní evidence BPS (odečet v 7:00)</span><span class="sp"></span><span id="upd"></span></div>
+  <div class="ftr"><span>Teplota a tlak: ThingSpeak 3149723 · Předpověď: Open-Meteo.com · Radar: ČHMÚ · Výkon a krmení: Denní evidence BPS (odečet v 7:00)</span><span class="sp"></span><span id="upd"></span></div>
 </div>
 
 <script>
@@ -341,7 +356,7 @@ function loadNow() {
   xhr(tsUrl('/feeds/last.json?_=' + Date.now()), function (e, txt) {
     if (!e) try {
       var j = JSON.parse(txt);
-      WX.now = { d: parseIso(j.created_at), t: parseFloat(j.field1), h: parseFloat(j.field2) };
+      WX.now = { d: parseIso(j.created_at), t: parseFloat(j.field1), p: parseFloat(j.field3) };
       cache('now', WX.now);
     } catch (x) {}
     renderWx();
@@ -352,13 +367,35 @@ function loadDay() { // posledních 24 h, hodinové průměry
     if (!e) try {
       var f = JSON.parse(txt).feeds || [], a = [];
       for (var i = 0; i < f.length; i++) {
-        var d = parseIso(f[i].created_at), t = parseFloat(f[i].field1), h = parseFloat(f[i].field2);
-        if (d && !isNaN(t)) a.push({ d: d, t: t, h: isNaN(h) ? null : h });
+        var d = parseIso(f[i].created_at), t = parseFloat(f[i].field1), pr = parseFloat(f[i].field3);
+        if (d && !isNaN(t)) a.push({ d: d, t: t, p: isNaN(pr) ? null : pr });
       }
       if (a.length) { WX.day = a; cache('day', a); }
     } catch (x) {}
     renderWx();
   });
+}
+
+/* Tlaková tendence za 3 hodiny (jak ji používají meteorologové) */
+function pressureTrend(nowP, nowD, pts) {
+  if (nowP === null || isNaN(nowP) || !pts || !pts.length) return null;
+  var target = nowD.getTime() - 3 * 36e5, best = null;
+  for (var i = 0; i < pts.length; i++) {
+    if (pts[i].p === null || isNaN(pts[i].p)) continue;
+    if (!best || Math.abs(pts[i].d - target) < Math.abs(best.d - target)) best = pts[i];
+  }
+  if (!best || Math.abs(best.d - target) > 50 * 60000) return null;
+  var dp = nowP - best.p, r;
+  if (dp >= 3.5)       r = { a: '⇈', t: 'rychle stoupá', o: 'rychlé zlepšení, může foukat' };
+  else if (dp >= 1.0)  r = { a: '▲', t: 'stoupá', o: 'počasí se zlepšuje' };
+  else if (dp > -1.0)  r = { a: '►', t: 'ustálený', o: 'beze změny' };
+  else if (dp > -3.5)  r = { a: '▼', t: 'klesá', o: 'zhoršování, možné srážky' };
+  else                 r = { a: '⇊', t: 'rychle klesá', o: 'výrazné zhoršení – déšť, vítr' };
+  r.dp = dp;
+  return r;
+}
+function pressureLevel(p) {
+  return p < 1000 ? 'tlaková níže' : (p > 1020 ? 'tlaková výše' : 'normální tlak');
 }
 function dewPoint(t, rh) {
   if (isNaN(t) || isNaN(rh) || rh <= 0) return null;
@@ -391,9 +428,13 @@ function renderWx() {
   var n = WX.now;
   if (n && !isNaN(n.t)) {
     $('t').innerHTML = fmt(n.t, 1) + '<small>°C</small>';
-    $('h').innerHTML = fmt(n.h, 0) + '<small>%</small>';
-    var dp = dewPoint(n.t, n.h);
-    $('dew').innerHTML = dp === null ? '—' : fmt(dp, 1) + ' °C';
+    if (!isNaN(n.p)) {
+      $('p').innerHTML = Math.round(n.p) + '<small>hPa</small>';
+      var tr = pressureTrend(n.p, n.d, WX.day);
+      $('pTend').innerHTML = tr ? tr.a + ' ' + tr.t + ' <span>' + (tr.dp >= 0 ? '+' : '') + fmt(tr.dp, 1) + ' hPa / 3 h</span>' : '<span>tendence: sbírám data…</span>';
+      $('pText').innerHTML = (tr ? tr.o + ' · ' : '') + pressureLevel(n.p);
+      var mk = $('pMark'); mk.style.display = 'block'; mk.style.left = Math.max(0, Math.min(100, (n.p - 970) / 80 * 100)) + '%';
+    }
     var age = Math.round((Date.now() - n.d) / 60000);
     $('age').className = 'age' + (age > 30 ? ' warn' : '');
     $('age').innerHTML = age > 30 ? '▲ meteostanice neposílá data ' + (age > 120 ? Math.round(age / 60) + ' h' : age + ' min')
@@ -404,7 +445,7 @@ function renderWx() {
   if (n && !isNaN(n.t)) tv.push(n.t);
   if (tv.length) { $('tMin').innerHTML = fmt(Math.min.apply(null, tv), 1) + ' °C'; $('tMax').innerHTML = fmt(Math.max.apply(null, tv), 1) + ' °C'; }
   spark('spT', WX.day, 't', '#f08a4b', '°C', 1);
-  spark('spH', WX.day, 'h', '#3987e5', '%', 0);
+  spark('spP', WX.day, 'p', '#3987e5', 'hPa', 1);
 }
 
 /* =====================================================================

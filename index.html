@@ -180,7 +180,7 @@ td.nm{font-size:13px;color:#c9d3dc;font-weight:600}
     <div class="kpi"><h3>Krmení celkem · 7 dní</h3><div class="v num" id="kFeed">—</div><div class="s" id="kFeedS">—</div></div>
     <div class="kpi"><h3>Měrná výroba</h3><div class="v num" id="kSpec">—</div><div class="s" id="kSpecS">—</div></div>
     <div class="kpi"><h3>Venkovní teplota</h3><div class="v num" id="kT">—</div><div class="s" id="kTS">—</div></div>
-    <div class="kpi"><h3>Vlhkost vzduchu</h3><div class="v num" id="kH">—</div><div class="s" id="kHS">—</div></div>
+    <div class="kpi"><h3>Tlak vzduchu</h3><div class="v num" id="kH">—</div><div class="s" id="kHS">—</div></div>
   </div>
 
   <div class="row mid">
@@ -202,7 +202,7 @@ td.nm{font-size:13px;color:#c9d3dc;font-weight:600}
       <div class="wx2">
         <div class="wxl">Teplota (°C)<span class="sp"></span>min<b class="num" id="tMin">—</b>&nbsp;&nbsp;max<b class="num" id="tMax">—</b></div>
         <div class="chart" id="chT"></div>
-        <div class="wxl">Relativní vlhkost (%)<span class="sp"></span>Ø<b class="num" id="hAvg">—</b></div>
+        <div class="wxl">Tlak na hladinu moře (hPa)<span class="sp"></span>tendence 3 h<b class="num" id="hAvg">—</b></div>
         <div class="chart" id="chH"></div>
       </div>
     </div>
@@ -458,7 +458,7 @@ function parseIso(s) { // 2026-11-17T18:00:00Z
 function loadMeteoNow(done) {
   xhr(tsBase() + '/feeds/last.json?_=' + Date.now(), function (e, txt) {
     if (!e) {
-      try { var j = JSON.parse(txt); S.now = { d: parseIso(j.created_at), t: parseFloat(j.field1), h: parseFloat(j.field2) }; S.tsErr = false; }
+      try { var j = JSON.parse(txt); S.now = { d: parseIso(j.created_at), t: parseFloat(j.field1), p: parseFloat(j.field3) }; S.tsErr = false; }
       catch (x) { S.tsErr = true; }
     } else S.tsErr = true;
     done && done();
@@ -473,8 +473,8 @@ function loadMeteoWeek(done) {
       if (!e) try {
         var f = JSON.parse(txt).feeds || [];
         for (var i = 0; i < f.length; i++) {
-          var d = parseIso(f[i].created_at), t = parseFloat(f[i].field1), h = parseFloat(f[i].field2);
-          if (d && !isNaN(t)) parts.push({ d: d, t: t, h: isNaN(h) ? null : h });
+          var d = parseIso(f[i].created_at), t = parseFloat(f[i].field1), h = parseFloat(f[i].field3);
+          if (d && !isNaN(t)) parts.push({ d: d, t: t, p: isNaN(h) ? null : h });
         }
       } catch (x) {}
       if (--pending === 0) {
@@ -707,16 +707,17 @@ function render() {
   if (S.now && !isNaN(S.now.t)) {
     var age = Math.round((Date.now() - S.now.d) / 60000);
     $('kT').innerHTML = fmt(S.now.t, 1) + '<small>°C</small>';
-    $('kH').innerHTML = fmt(S.now.h, 0) + '<small>%</small>';
+    $('kH').innerHTML = isNaN(S.now.p) ? '—' : Math.round(S.now.p) + '<small>hPa</small>';
+    var trn = pressureTrend(S.now.p, S.now.d, S.wx);
     var ageTxt = age < 2 ? 'právě teď' : ('před ' + age + ' min');
     var tv = wxs.map(function (p) { return p.t; }), hv = wxs.map(function (p) { return p.h; });
     $('kTS').innerHTML = (tv.length ? 'týden ' + fmt(Math.min.apply(null, tv), 1) + ' až ' + fmt(Math.max.apply(null, tv), 1) + ' °C<br>' : '') + 'měřeno ' + ageTxt;
-    $('kHS').innerHTML = (hv.length ? 'Ø za týden ' + fmt(avg(hv), 0) + ' %<br>' : '') + 'měřeno ' + ageTxt;
+    $('kHS').innerHTML = (trn ? trn.a + ' ' + trn.t + ' ' + (trn.dp >= 0 ? '+' : '') + fmt(trn.dp, 1) + ' hPa/3 h<br>' + trn.o : pressureLevel(S.now.p) + '<br>měřeno ' + ageTxt);
+    $('hAvg').innerHTML = trn ? trn.a + ' ' + (trn.dp >= 0 ? '+' : '') + fmt(trn.dp, 1) : '—';
   }
   if (wxs.length) {
     var tv2 = wxs.map(function (p) { return p.t; });
     $('tMin').innerHTML = fmt(Math.min.apply(null, tv2), 1); $('tMax').innerHTML = fmt(Math.max.apply(null, tv2), 1);
-    $('hAvg').innerHTML = fmt(avg(wxs.map(function (p) { return p.h; })), 0) + ' %';
   }
 
   // Grafy
@@ -729,7 +730,7 @@ function render() {
   $('lgFeed').innerHTML = lg;
   drawFeed(fw);
   drawLine('chT', wxs, 't', '#d95926', '°C', 1);
-  drawLine('chH', wxs, 'h', '#3987e5', '%', 0, 0, 100);
+  drawLine('chH', wxs, 'p', '#3987e5', 'hPa', 1);
 
   renderFer(wk, fw);
   renderEvents();
@@ -822,6 +823,29 @@ function renderStatus() {
   else if (age > 30) setChip('stTs', 'warn', 'Meteo bez dat ' + (age > 120 ? Math.round(age / 60) + ' h' : Math.round(age) + ' min'));
   else setChip('stTs', 'ok', 'Meteo online');
   if (S.sheetAt) { var d = new Date(S.sheetAt); $('upd').innerHTML = 'data z tabulky<br>' + pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+}
+
+
+/* Tlaková tendence za 3 hodiny (jak ji používají meteorologové) */
+function pressureTrend(nowP, nowD, pts) {
+  if (nowP === null || isNaN(nowP) || !pts || !pts.length) return null;
+  var target = nowD.getTime() - 3 * 36e5, best = null;
+  for (var i = 0; i < pts.length; i++) {
+    if (pts[i].p === null || isNaN(pts[i].p)) continue;
+    if (!best || Math.abs(pts[i].d - target) < Math.abs(best.d - target)) best = pts[i];
+  }
+  if (!best || Math.abs(best.d - target) > 50 * 60000) return null;
+  var dp = nowP - best.p, r;
+  if (dp >= 3.5)       r = { a: '⇈', t: 'rychle stoupá', o: 'rychlé zlepšení, může foukat' };
+  else if (dp >= 1.0)  r = { a: '▲', t: 'stoupá', o: 'počasí se zlepšuje' };
+  else if (dp > -1.0)  r = { a: '►', t: 'ustálený', o: 'beze změny' };
+  else if (dp > -3.5)  r = { a: '▼', t: 'klesá', o: 'zhoršování, možné srážky' };
+  else                 r = { a: '⇊', t: 'rychle klesá', o: 'výrazné zhoršení – déšť, vítr' };
+  r.dp = dp;
+  return r;
+}
+function pressureLevel(p) {
+  return p < 1000 ? 'tlaková níže' : (p > 1020 ? 'tlaková výše' : 'normální tlak');
 }
 
 /* Hodiny */
